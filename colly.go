@@ -215,7 +215,7 @@ const (
 )
 
 // The prefix for environment variables of Colly settings
-const EnvVariablePrefix = "COLLY_"
+const envVariablePrefix = "COLLY_"
 
 var (
 	// ErrForbiddenDomain is the error thrown if visiting
@@ -1510,10 +1510,10 @@ func (c *Collector) checkRedirectFunc() func(req *http.Request, via []*http.Requ
 
 func (c *Collector) parseSettingsFromEnv() {
 	for _, e := range os.Environ() {
-		if !strings.HasPrefix(e, EnvVariablePrefix) {
+		if !strings.HasPrefix(e, envVariablePrefix) {
 			continue
 		}
-		pair := strings.SplitN(e[len(EnvVariablePrefix):], "=", 2)
+		pair := strings.SplitN(e[len(envVariablePrefix):], "=", 2)
 		if f, ok := envMap[pair[0]]; ok {
 			f(c, pair[1])
 		} else {
