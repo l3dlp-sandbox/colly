@@ -281,6 +281,15 @@ y">link</a>
 		}
 	})
 
+	mux.HandleFunc("/sitemap.xml.gz", func(w http.ResponseWriter, r *http.Request) {
+		// Return a 404 HTML page for a non-existent .xml.gz URL.
+		// This simulates the scenario in issue #745 where a server
+		// returns an HTML error page for a missing gzipped sitemap.
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(404)
+		w.Write([]byte(`<!DOCTYPE html><html><body><h1>404 Not Found</h1></body></html>`))
+	})
+
 	return httptest.NewUnstartedServer(mux)
 }
 
@@ -1924,5 +1933,38 @@ func TestCheckRequestHeadersFunc(t *testing.T) {
 	c.Visit(ts.URL)
 	if try == false {
 		t.Error("TestCheckRequestHeadersFunc failed")
+	}
+}
+
+func TestIssue745GzipURLWith404Response(t *testing.T) {
+	ts := newTestServer()
+	defer ts.Close()
+
+	c := NewCollector()
+
+	var responseStatusCode int
+	c.OnError(func(resp *Response, err error) {
+		responseStatusCode = resp.StatusCode
+		// The error should NOT be "gzip: invalid header".
+		// A 404 response for a .xml.gz URL should be treated as a
+		// normal HTTP error, not a decompression failure.
+		if strings.Contains(err.Error(), "gzip") {
+			t.Errorf("Expected HTTP error, got gzip decompression error: %v", err)
+		}
+	})
+
+	c.OnResponse(func(resp *Response) {
+		// A 404 should not reach OnResponse as a successful response
+		if resp.StatusCode == 404 {
+			responseStatusCode = resp.StatusCode
+		}
+	})
+
+	c.Visit(ts.URL + "/sitemap.xml.gz")
+
+	// The response should have been received (either via OnError or OnResponse)
+	// with status 404, not a gzip decompression error
+	if responseStatusCode != 404 {
+		t.Errorf("Expected status code 404, got %d", responseStatusCode)
 	}
 }
